@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Eternal Player</string>
+    <string name="pick_audio_1">Pick Audio 1</string>
+    <string name="pick_audio_2">Pick Audio 2</string>
+    <string name="file_pick">File picked</string>
+</resources>
