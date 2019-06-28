@@ -7,31 +7,32 @@ interface Contract {
     interface View {
         fun showPlay()
         fun showPause()
-        fun seekToCurTime(curTime: Int)
         fun selectAudio(pick_num: Int)
         fun setSeekMax(value: Int)
         fun showSnackBar(message: String, duration: Int)
-        fun getCurTime(): Int
-        fun prepareToMusic()
-        fun pauseMusic()
-        fun startMusic()
+        fun getCurTime(index: Int): Int
+        fun prepareToMusic(index: Int)
+        fun stopMusic()
+        fun startMusic(index: Int)
         fun clickableBtn(id: Int, boolean: Boolean)
-        fun resetMP()
-        fun getMediaPlayerState(): Boolean
-        fun setNextTrack(uri: Uri)
+        fun resetMP(index: Int)
+        fun getMediaPlayerState(index: Int): Boolean
+        fun setTrack(uri: Uri, index: Int)
         fun setText(id: Int, textID: Int)
+        fun changeMediaPlayerVolume(volume: Float, index: Int)
+        fun getTrackDuration(index: Int): Int
+        fun enableSeekBar(boolean: Boolean)
     }
 
     interface Presenter {
         fun prepareForWork()
         fun onPickBtn1WasClicked()
         fun onPickBtn2WasClicked()
-        fun onPlayPauseBtnWasClicked(boolean: Boolean)
+        fun onPlayPauseBtnWasClicked()
         fun onStopSeekBarTracking()
         fun onGetUri(index: Int)
         fun onCrossFadeChange(value: Int)
         fun addTrackToMusicList(index: Int, uri: Uri)
-        fun completeTrack()
         fun prepareTrack()
     }
 }

@@ -1,18 +1,29 @@
 package com.example.testtask
 
 import android.net.Uri
-import java.util.*
-import kotlin.concurrent.timerTask
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 
 class Presenter(var mView: Activity) : Contract.Presenter {
 
-    private val min: Int = 2
-    private val max: Int = 10
-    private var fade: Int = min
-    private var mCompleted: Int = 0
-    private var curMusicTime: Int = 0
+    private val min = 2
+    private val max = 10
+
+    private val maxVolume = 1F
+    private val minVolume = 0F
+    private var curVolume = 0F
+
+    private var fade = min
+
+    private var curMediaPlayer = 0
+
+    private val longDuration = 5000
+    private val mediumDuration = 3000
+    private val shortDuration = 1000
 
     private var musicList: Array<Uri> = Array(2) { Uri.EMPTY }
+    private lateinit var timer: ScheduledExecutorService
 
     override fun prepareForWork() {
         mView.setSeekMax(max - min)
@@ -28,30 +39,40 @@ class Presenter(var mView: Activity) : Contract.Presenter {
         mView.selectAudio(1)
     }
 
-    override fun onPlayPauseBtnWasClicked(boolean: Boolean) {
-        if (musicList[0] != Uri.EMPTY
-            && musicList[1] != Uri.EMPTY
+    override fun onPlayPauseBtnWasClicked() {
+        if (musicList[0] != Uri.EMPTY && musicList[1] != Uri.EMPTY
         ) {
-            when (boolean) {
+            when (mView.getMediaPlayerState(0) || mView.getMediaPlayerState(1)) {
                 false -> {
-                    if (curMusicTime > 0) {
-                        mView.seekToCurTime(curMusicTime)
-                    } else {
-                        mView.prepareToMusic()
-                    }
-                    mView.showPlay()
+                    startMusic()
                 }
                 true -> {
-                    mView.pauseMusic()
-                    if (!mView.getMediaPlayerState()) {
-                        curMusicTime = mView.getCurTime()
-                    }
-                    mView.showPause()
+                    completeMusic()
                 }
             }
         } else {
-            mView.showSnackBar("Выберите недостающие файлы", 2000)
+            mView.showSnackBar("Выберите недостающие файлы", mediumDuration)
         }
+    }
+
+    private fun startMusic() {
+        mView.prepareToMusic(curMediaPlayer)
+        mView.enableSeekBar(false)
+        mView.showSnackBar("Во время воспроизведения параметры нельзя изменить", longDuration)
+        mView.showPause()
+    }
+
+    private fun completeMusic() {
+        mView.stopMusic()
+        mView.showSnackBar("Вы можете выбрать параметры заново", mediumDuration)
+        mView.resetMP(0)
+        mView.resetMP(1)
+        mView.clickableBtn(R.id.pickBtn1, true)
+        mView.clickableBtn(R.id.pickBtn2, true)
+        mView.enableSeekBar(true)
+        musicList[0] = Uri.EMPTY
+        musicList[1] = Uri.EMPTY
+        mView.showPlay()
     }
 
     //Download Files
@@ -59,11 +80,12 @@ class Presenter(var mView: Activity) : Contract.Presenter {
     override fun onGetUri(index: Int) {
         when (index) {
             0 -> {
-                mView.setNextTrack(musicList[mCompleted++])
+                mView.setTrack(musicList[index], index)
                 mView.setText(R.id.pickBtn1, R.string.file_pick)
                 mView.clickableBtn(R.id.pickBtn1, false)
             }
             1 -> {
+                mView.setTrack(musicList[index], index)
                 mView.setText(R.id.pickBtn2, R.string.file_pick)
                 mView.clickableBtn(R.id.pickBtn2, false)
             }
@@ -79,40 +101,77 @@ class Presenter(var mView: Activity) : Contract.Presenter {
     override fun onStopSeekBarTracking() {
         mView.showSnackBar(
             "CrossFade = $fade seconds",
-            1000
+            shortDuration
         )
     }
 
     //CrossFade
 
     override fun onCrossFadeChange(value: Int) {
-        fade = min + value
+        if (!mView.getMediaPlayerState(curMediaPlayer)) {
+            fade = min + value
+        }
     }
 
-    private fun crossFade(fade: Int) {
-        Timer().schedule(timerTask { mView.prepareToMusic() }, fade.toLong() * 1000)
+    private fun crossFade(complete: Int) {
+        timer = Executors.newScheduledThreadPool(1)
+        when (complete) {
+            0 -> {
+                timer.scheduleWithFixedDelay({ volumeDown() }, 0, 100, TimeUnit.MILLISECONDS)
+            }
+            1 -> {
+                timer.scheduleWithFixedDelay({ volumeUp() }, 0, 100, TimeUnit.MILLISECONDS)
+            }
+        }
+    }
+
+    private fun volumeDown() {
+        curVolume -= 100 / (fade * 1000).toFloat()
+        mView.changeMediaPlayerVolume(maxVolume - curVolume, 0)
+        mView.changeMediaPlayerVolume(curVolume, 1)
+        if (curVolume <= minVolume) {
+            timer.shutdown()
+            curVolume = minVolume
+        }
+    }
+
+    private fun volumeUp() {
+        curVolume += 100 / (fade * 1000).toFloat()
+        mView.changeMediaPlayerVolume(maxVolume - curVolume, 0)
+        mView.changeMediaPlayerVolume(curVolume, 1)
+        if (curVolume >= maxVolume) {
+            timer.shutdown()
+            curVolume = maxVolume
+        }
     }
 
     //MediaPlayer
 
-    override fun completeTrack() {
-        mView.resetMP()
-        when (mCompleted) {
-            0 -> {
-                mView.setNextTrack(musicList[mCompleted++])
-            }
-            1 -> {
-                mView.setNextTrack(musicList[mCompleted--])
-            }
-        }
+    override fun prepareTrack() {
         mView.showPause()
-        mView.clickableBtn(R.id.playPauseBtn, false)
-        crossFade(fade)
+        mView.startMusic(curMediaPlayer)
+        waitToStartNextTrack(
+            mView.getTrackDuration(curMediaPlayer) - mView.getCurTime(curMediaPlayer) - fade * 1000
+        )
     }
 
-    override fun prepareTrack() {
-        mView.clickableBtn(R.id.playPauseBtn, true)
-        mView.showPlay()
-        mView.startMusic()
+    //Timer to start next track
+
+    private fun waitToStartNextTrack(time: Int) {
+        Executors.newSingleThreadScheduledExecutor()
+            .schedule({
+                when (curMediaPlayer) {
+                    0 -> {
+                        curMediaPlayer++
+                    }
+                    1 -> {
+                        curMediaPlayer--
+                    }
+                }
+                mView.resetMP(curMediaPlayer)
+                mView.setTrack(musicList[curMediaPlayer], curMediaPlayer)
+                mView.prepareToMusic(curMediaPlayer)
+                crossFade(curMediaPlayer)
+            }, time.toLong(), TimeUnit.MILLISECONDS)
     }
 }

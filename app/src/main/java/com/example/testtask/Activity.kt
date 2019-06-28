@@ -16,11 +16,11 @@ import android.util.Log
 import java.lang.Exception
 
 class Activity : AppCompatActivity(), SeekBar.OnSeekBarChangeListener, View.OnClickListener,
-    MediaPlayer.OnCompletionListener, MediaPlayer.OnPreparedListener, MediaPlayer.OnSeekCompleteListener,
-    Contract.View {
+    MediaPlayer.OnPreparedListener, Contract.View {
 
     private var mPresenter: Presenter = Presenter(this)
-    private var mediaPlayer: MediaPlayer = MediaPlayer()
+    private var mp: MediaPlayer = MediaPlayer()
+    private var mp2: MediaPlayer = MediaPlayer()
 
     private lateinit var view: View
     private lateinit var snackBar: Snackbar
@@ -41,9 +41,9 @@ class Activity : AppCompatActivity(), SeekBar.OnSeekBarChangeListener, View.OnCl
         pickBtn1.setOnClickListener(this)
         pickBtn2.setOnClickListener(this)
         playPauseBtn.setOnClickListener(this)
-        mediaPlayer.setOnCompletionListener(this)
-        mediaPlayer.setOnPreparedListener(this)
-        mediaPlayer.setOnSeekCompleteListener(this)
+
+        mp.setOnPreparedListener(this)
+        mp2.setOnPreparedListener(this)
 
         mPresenter.prepareForWork()
     }
@@ -70,6 +70,10 @@ class Activity : AppCompatActivity(), SeekBar.OnSeekBarChangeListener, View.OnCl
         seekBar.max = value
     }
 
+    override fun enableSeekBar(boolean: Boolean) {
+        seekBar.isEnabled = boolean
+    }
+
     override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {
         mPresenter.onCrossFadeChange(p1)
     }
@@ -92,18 +96,18 @@ class Activity : AppCompatActivity(), SeekBar.OnSeekBarChangeListener, View.OnCl
                     mPresenter.onPickBtn2WasClicked()
                 }
                 R.id.playPauseBtn -> {
-                    mPresenter.onPlayPauseBtnWasClicked(mediaPlayer.isPlaying)
+                    mPresenter.onPlayPauseBtnWasClicked()
                 }
             }
         }
     }
 
     override fun showPlay() {
-        playPauseBtn.setImageResource(R.mipmap.ic_action_pause)
+        playPauseBtn.setImageResource(R.mipmap.ic_action_play)
     }
 
     override fun showPause() {
-        playPauseBtn.setImageResource(R.mipmap.ic_action_play)
+        playPauseBtn.setImageResource(R.mipmap.ic_action_pause)
     }
 
     override fun clickableBtn(id: Int, boolean: Boolean) {
@@ -121,68 +125,125 @@ class Activity : AppCompatActivity(), SeekBar.OnSeekBarChangeListener, View.OnCl
     }
 
     override fun setText(id: Int, textID: Int) {
-        when(id) {
-            R.id.pickBtn1 -> { pickBtn1.text = getString(textID) }
-            R.id.pickBtn2 -> { pickBtn2.text = getString(textID) }
+        when (id) {
+            R.id.pickBtn1 -> {
+                pickBtn1.text = getString(textID)
+            }
+            R.id.pickBtn2 -> {
+                pickBtn2.text = getString(textID)
+            }
         }
     }
 
     //MediaPlayer
 
-    override fun onCompletion(p0: MediaPlayer?) {
-        if (p0 == mediaPlayer) {
-            mPresenter.completeTrack()
-        }
-    }
-
     override fun onPrepared(p0: MediaPlayer?) {
-        if (p0 == mediaPlayer) {
-            mPresenter.prepareTrack()
-        }
-    }
-
-    override fun onSeekComplete(p0: MediaPlayer?) {
-        p0?.start()
+        mPresenter.prepareTrack()
     }
 
     private fun releaseMP() {
         try {
-            mediaPlayer.release()
+            mp.release()
+            mp2.release()
         } catch (e: Exception) {
             Log.i("EXCEPT", e.message!!)
         }
     }
 
-    override fun getCurTime(): Int {
-        return mediaPlayer.currentPosition
+    override fun getCurTime(index: Int): Int {
+        when (index) {
+            0 -> {
+                return mp.currentPosition
+            }
+            1 -> {
+                return mp2.currentPosition
+            }
+        }
+        return 0
     }
 
-    override fun seekToCurTime(curTime: Int) {
-        mediaPlayer.seekTo(curTime)
+    override fun stopMusic() {
+        mp.stop()
+        mp2.stop()
     }
 
-    override fun pauseMusic() {
-        mediaPlayer.pause()
+    override fun getTrackDuration(index: Int): Int {
+        when (index) {
+            0 -> {
+                return mp.duration
+            }
+            1 -> {
+                return mp2.duration
+            }
+        }
+        return 0
     }
 
-    override fun startMusic() {
-        mediaPlayer.start()
+    override fun startMusic(index: Int) {
+        when (index) {
+            0 -> {
+                mp.start()
+            }
+            1 -> {
+                mp2.start()
+            }
+        }
     }
 
-    override fun prepareToMusic() {
-        mediaPlayer.prepareAsync()
+    override fun prepareToMusic(index: Int) {
+        when (index) {
+            0 -> {
+                mp.prepareAsync()
+            }
+            1 -> {
+                mp2.prepareAsync()
+            }
+        }
     }
 
-    override fun resetMP() {
-        mediaPlayer.reset()
+    override fun resetMP(index: Int) {
+        when (index) {
+            0 -> {
+                mp.reset()
+            }
+            1 -> {
+                mp2.reset()
+            }
+        }
     }
 
-    override fun getMediaPlayerState(): Boolean {
-        return mediaPlayer.isPlaying
+    override fun getMediaPlayerState(index: Int): Boolean {
+        when (index) {
+            0 -> {
+                return mp.isPlaying
+            }
+            1 -> {
+                return mp2.isPlaying
+            }
+        }
+        return false
     }
 
-    override fun setNextTrack(uri: Uri) {
-        mediaPlayer.setDataSource(this, uri)
+    override fun setTrack(uri: Uri, index: Int) {
+        when (index) {
+            0 -> {
+                mp.setDataSource(this, uri)
+            }
+            1 -> {
+                mp2.setDataSource(this, uri)
+            }
+        }
+    }
+
+    override fun changeMediaPlayerVolume(volume: Float, index: Int) {
+        when (index) {
+            0 -> {
+                mp.setVolume(volume, volume)
+            }
+            1 -> {
+                mp2.setVolume(volume, volume)
+            }
+        }
     }
 
     //Pick Files
